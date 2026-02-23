@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import Cookies from "js-cookie";
+import toast, { Toaster } from "react-hot-toast";
 import axios from "axios";
 
 export const user_service = "http://localhost:5000";
@@ -74,12 +75,28 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       setLoading(false);
     }
   }
+  async function logoutUser() {
+    Cookies.remove("token");
+    setUser(null);
+    setIsAuth(false);
+    toast.success("User logged out");
+  }
+
+  const [chats, setChats] = useState<Chats[] | null>(null);
+  async function fetchChats() {
+    try {
+      const token = Cookies.get("token");
+    } catch (error) {
+      console.log(error);
+    }
+  }
   useEffect(() => {
     fetchUser();
   }, []);
   return (
     <AppContext.Provider value={{ user, setUser, isAuth, setIsAuth, loading }}>
       {children}
+      <Toaster />
     </AppContext.Provider>
   );
 };
