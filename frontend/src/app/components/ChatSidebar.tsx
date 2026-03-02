@@ -167,8 +167,8 @@ const ChatSidebar = ({
                         <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-gray-900 " />
                       )}
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
+                      <div className="flex-1 min-w-0 ">
+                        <div className="flex items-center justify-between mb-1 gap-1">
                           <span
                             className={`font-semibold truncate ${
                               isSelected ? "text-white" : "text-gray-200"
