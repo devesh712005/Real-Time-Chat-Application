@@ -24,6 +24,7 @@ interface ChatSidebarProps {
   selectedUser: string | null;
   handleLogout: () => void;
   createChat: (user: User) => void;
+  onlineUsers: string[];
 }
 const ChatSidebar = ({
   sidebarOpen,
@@ -37,6 +38,7 @@ const ChatSidebar = ({
   setSelectedUser,
   handleLogout,
   createChat,
+  onlineUsers,
 }: ChatSidebarProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   return (
@@ -121,8 +123,12 @@ const ChatSidebar = ({
                     <div className="flex items-center gap-3 ">
                       <div className="relative">
                         <UserCircle className="w-6 h-6 text-gray-300" />
+                        {onlineUsers.includes(u._id) && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-gray-900 " />
+                        )}
                       </div>
                       {/* online symbol show */}
+
                       <div className="flex-1 min-w-0">
                         <span className="font-medium text-white">{u.name}</span>
                         <div className="text-xs text-gray-400 mt-0.5">
