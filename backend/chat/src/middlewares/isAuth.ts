@@ -27,6 +27,16 @@ export const isAuth = async (
       return;
     }
     const token = authHeader.split(" ")[1];
+    if (!token) {
+      res.status(401).json({
+        message: "Token missing",
+      });
+      return;
+    }
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error("JWT_SECRET not defined");
+    }
     const decodedValue = jwt.verify(
       token,
       process.env.JWT_SECRET as string,
