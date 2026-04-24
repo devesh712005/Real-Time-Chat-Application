@@ -4,27 +4,35 @@ dotenv.config();
 let channel: amqp.Channel;
 
 export const connectRabbitMQ = async () => {
-  try {
-    console.log("RABBIT CONFIG =>", {
-      host: process.env.Rabbitmq_Host,
-      user: process.env.Rabbitmq_Username,
-      pass: process.env.Rabbitmq_Password,
-    });
-    const connection = await amqp.connect({
-      protocol: "amqp",
-      hostname: process.env.Rabbitmq_Host,
-      port: 5672,
-      username: process.env.Rabbitmq_Username,
-      password: process.env.Rabbitmq_Password,
-    });
+  while (true) {
+    try {
+      console.log("RABBIT CONFIG =>", {
+        host: process.env.Rabbitmq_Host,
+        user: process.env.Rabbitmq_Username,
+        pass: process.env.Rabbitmq_Password,
+      });
 
-    channel = await connection.createChannel();
-    console.log("💯 connected successfully to rabbitmq ");
-  } catch (error) {
-    console.error("Failed to connect to rabbitmq", error);
+      console.log("Trying to connect to RabbitMQ...");
+
+      const connection = await amqp.connect({
+        protocol: "amqp",
+        hostname: process.env.Rabbitmq_Host || "rabbitmq",
+        port: 5672,
+        username: process.env.Rabbitmq_Username || "guest",
+        password: process.env.Rabbitmq_Password || "guest",
+      });
+
+      channel = await connection.createChannel();
+
+      console.log("✅ Connected to RabbitMQ");
+
+      break; // ✅ IMPORTANT: exit loop when connected
+    } catch (error) {
+      console.error("❌ Failed to connect, retrying in 5 sec...");
+      await new Promise((res) => setTimeout(res, 5000));
+    }
   }
 };
-
 export const publishToQueue = async (queueName: string, message: any) => {
   if (!channel) {
     console.log("Rabbitmq channel is not initialized");
