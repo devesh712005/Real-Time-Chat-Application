@@ -104,7 +104,8 @@ const ChatApp = () => {
 
       const updatedChats = [...prev];
 
-      const currentChatId = typeof chatId === "object" ? chatId._id : chatId;
+      const currentChatId =
+        typeof chatId === "object" ? (chatId as any)._id : chatId;
 
       const chatIndex = updatedChats.findIndex(
         (chat) => chat.chat._id === currentChatId,
