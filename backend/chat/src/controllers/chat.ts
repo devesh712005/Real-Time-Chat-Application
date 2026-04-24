@@ -4,7 +4,8 @@ import type { AuthenticatedRequest } from "../middlewares/isAuth.js";
 import { Chat } from "../models/Chat.js";
 import { Messages } from "../models/Messages.js";
 import { getReceiverSocketId, io } from "../config/socket.js";
-
+import { analyzeMessage } from "../services/moderationClient.js";
+// export con
 export const createNewChat = TryCatch(
   async (req: AuthenticatedRequest, res) => {
     const userId = req.user?._id;
@@ -87,73 +88,51 @@ export const getAllChats = TryCatch(async (req: AuthenticatedRequest, res) => {
     chats: chatWithUserData,
   });
 });
-
 export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res) => {
   const senderId = req.user?._id;
   const { chatId, text } = req.body;
   const imageFile = req.file;
 
-  if (!senderId) {
-    res.status(401).json({
-      message: "unauthorized",
-    });
-    return;
-  }
-  if (!chatId) {
-    res.status(400).json({
-      message: "ChatId Required",
-    });
-    return;
-  }
+  if (!senderId) return res.status(401).json({ message: "Unauthorized" });
+  if (!chatId) return res.status(400).json({ message: "ChatId required" });
+  if (!text && !imageFile)
+    return res.status(400).json({ message: "Text or image required" });
 
-  if (!text && !imageFile) {
-    res.status(400).json({
-      message: "Either text or image is required",
-    });
-    return;
-  }
-  const chat = await Chat.findById(chatId);
-  if (!chat) {
-    res.status(404).json({
-      message: "Chat not found",
-    });
-    return;
-  }
+  // 🔍 MODERATION
+  let warning: string | null = null;
 
-  const isUserInChat = chat.users.some(
-    (userId) => userId.toString() === senderId.toString(),
-  );
-  if (!isUserInChat) {
-    res.status(403).json({
-      message: "You are not a participant of this chat",
-    });
-    return;
-  }
-  const otherUserId = chat.users.find(
-    (userId) => userId.toString() !== senderId.toString(),
-  );
-  if (!otherUserId) {
-    res.status(401).json({
-      message: "No other user",
-    });
-    return;
-  }
-  //socket setup
+  if (text) {
+    const result = await analyzeMessage(text);
 
-  const receiverSocketId = getReceiverSocketId(otherUserId.toString());
-  let isReceiverInChatRoom = false;
-  if (receiverSocketId) {
-    const receiverSocket = io.sockets.sockets.get(receiverSocketId);
-    if (receiverSocket && receiverSocket.rooms.has(chatId)) {
-      isReceiverInChatRoom = true;
+    if (result.action === "BLOCK") {
+      return res.status(400).json({ message: result.message });
+    }
+
+    if (result.action === "ALLOW_WITH_WARNING") {
+      warning = result.message;
     }
   }
 
-  let messageData: any = {
-    chatId: chatId,
+  // 💬 CHAT VALIDATION
+  const chat = await Chat.findById(chatId);
+  if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+  const otherUserId = chat.users.find(
+    (u) => u.toString() !== senderId.toString(),
+  );
+  if (!otherUserId) {
+    return res.status(400).json({ message: "Other user not found" });
+  }
+  const receiverSocketId = getReceiverSocketId(otherUserId.toString());
+  console.log("Receiver...", receiverSocketId);
+
+  // 🧾 CREATE MESSAGE
+  const messageData: any = {
+    chatId,
     sender: senderId,
-    seen: isReceiverInChatRoom,
-    seenAt: isReceiverInChatRoom ? new Date() : undefined,
+    seen: false,
+    text: text || "",
+    messageType: imageFile ? "image" : "text",
   };
 
   if (imageFile) {
@@ -161,47 +140,41 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res) => {
       url: imageFile.path,
       publicId: imageFile.filename,
     };
-    messageData.messageType = "image";
-    messageData.text = text || "";
-  } else {
-    messageData.text = text;
-    messageData.messageType = "text";
   }
 
-  const message = new Messages(messageData);
+  const savedMessage = await Messages.create(messageData);
 
-  const savedMessage = await message.save();
-
-  const latestMessageText = imageFile ? "📷 Image" : text;
-  await Chat.findByIdAndUpdate(
-    chatId,
-    {
-      latestMessage: {
-        text: latestMessageText,
-        sender: senderId,
-      },
-      updatedAt: new Date(),
+  // 🔄 UPDATE CHAT
+  await Chat.findByIdAndUpdate(chatId, {
+    latestMessage: {
+      text: imageFile ? "📷 Image" : text,
+      sender: senderId,
     },
-    { new: true },
-  );
+    updatedAt: new Date(),
+  });
 
-  //emit to sockets
+  // ⚠️ WARNING POPUP
+  if (warning && receiverSocketId) {
+    io.to(receiverSocketId).emit("warningPopup", {
+      text: warning,
+      chatId,
+    });
+  }
 
+  // 📩 SEND MESSAGE
   io.to(chatId).emit("newMessage", savedMessage);
+
+  // 🔥 UNREAD COUNT (ONLY BACKEND CONTROLS THIS)
   if (receiverSocketId) {
-    io.to(receiverSocketId).emit("newMessage", savedMessage);
-  }
+    const unreadCount = await Messages.countDocuments({
+      chatId,
+      sender: otherUserId,
+      seen: false,
+    });
 
-  const senderSocketId = getReceiverSocketId(senderId.toString());
-  if (senderSocketId) {
-    io.to(senderSocketId).emit("newMessage", savedMessage);
-  }
-
-  if (isReceiverInChatRoom && senderSocketId) {
-    io.to(senderSocketId).emit("messagesSeen", {
-      chatId: chatId,
-      seenBy: otherUserId,
-      messageIds: [savedMessage._id],
+    io.to(receiverSocketId).emit("updateUnread", {
+      chatId,
+      unreadCount,
     });
   }
 
@@ -235,7 +208,7 @@ export const getMessagesByChat = TryCatch(
       return;
     }
     const isUserInChat = chat.users.some(
-      (userId) => userId.toString() === userId.toString(),
+      (u) => u.toString() === userId.toString(),
     );
     if (!isUserInChat) {
       res.status(403).json({
@@ -277,11 +250,11 @@ export const getMessagesByChat = TryCatch(
       if (messagesToMarkSeen.length > 0) {
         const otherUserSocketId = getReceiverSocketId(otherUserId.toString());
         if (otherUserSocketId) {
-          io.to(otherUserSocketId).emit("messagesSeen", {
-            chatId:
-            chatId,
+          io.to(otherUserSocketId).emit("messageSeen", {
+            chatId: chatId,
             seenBy: userId,
             messageIds: messagesToMarkSeen.map((msg) => msg._id),
+            unreadCount: 0,
           });
         }
       }
