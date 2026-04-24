@@ -22,7 +22,7 @@ const ProfilePage = () => {
     const token = Cookies.get("token");
     try {
       const { data } = await axios.post(
-        `${user_service}/api/v1/update/user`,
+        `${user_service}/api/user/update/user`,
         { name },
         {
           headers: {

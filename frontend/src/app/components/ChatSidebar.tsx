@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+
 interface ChatSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -41,6 +43,7 @@ const ChatSidebar = ({
   onlineUsers,
 }: ChatSidebarProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
   return (
     <aside
       className={`
@@ -220,7 +223,12 @@ const ChatSidebar = ({
           </div>
         )}
       </div>
-
+      <button
+        onClick={() => router.push("/ai-chat")}
+        className="w-full mt-2 bg-purple-600 p-2 rounded"
+      >
+        🤖 AI Chat
+      </button>
       {/* footer */}
       <div className="p-4 border-t border-gray-700 space-y-2">
         <Link

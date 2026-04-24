@@ -14,7 +14,7 @@ dotenv.config();
 connectDb();
 connectRabbitMQ();
 app.use(cors());
-app.use("/api/v1", userRoutes);
+app.use("/api/user", userRoutes);
 
 const redisUrl = process.env.REDIS_URL;
 if (!redisUrl) {

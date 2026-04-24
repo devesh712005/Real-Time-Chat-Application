@@ -41,6 +41,9 @@ const ChatApp = () => {
   const { onlineUsers, socket } = SocketData();
   console.log(onlineUsers);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [pendingWarnings, setPendingWarnings] = useState<
+    Record<string, string>
+  >({});
   const [message, setMessage] = useState("");
   const [sideBarOpen, setSideBarOpen] = useState(false);
   const [messages, setMessages] = useState<Message[] | null>(null);
@@ -51,6 +54,18 @@ const ChatApp = () => {
     typeof setTimeout
   > | null>(null);
   const router = useRouter();
+  useEffect(() => {
+    if (selectedUser && pendingWarnings[selectedUser]) {
+      toast.error(pendingWarnings[selectedUser]);
+
+      // 🔥 REMOVE AFTER SHOWING
+      setPendingWarnings((prev) => {
+        const updated = { ...prev };
+        delete updated[selectedUser];
+        return updated;
+      });
+    }
+  }, [selectedUser, pendingWarnings]);
   useEffect(() => {
     if (!isAuth && !loading) {
       router.push("/login");
@@ -82,15 +97,17 @@ const ChatApp = () => {
   const moveChatToTop = (
     chatId: string,
     newMessage: any,
-    updatedUnseenCount = true,
+    increaseUnseen = false,
   ) => {
     setChats((prev) => {
       if (!prev) return null;
 
       const updatedChats = [...prev];
 
+      const currentChatId = typeof chatId === "object" ? chatId._id : chatId;
+
       const chatIndex = updatedChats.findIndex(
-        (chat) => chat.chat._id === chatId,
+        (chat) => chat.chat._id === currentChatId,
       );
 
       if (chatIndex !== -1) {
@@ -104,9 +121,11 @@ const ChatApp = () => {
               text: newMessage.text,
               sender: newMessage.sender,
             },
-            updatedAt: new Date().toString(),
+            updatedAt: new Date().toISOString(),
+
+            // ✅ FIXED LOGIC
             unseenCount:
-              updatedUnseenCount && newMessage.sender !== loggedInUser?._id
+              increaseUnseen && selectedUser !== currentChatId
                 ? (movedChat.chat.unseenCount || 0) + 1
                 : movedChat.chat.unseenCount || 0,
           },
@@ -119,23 +138,6 @@ const ChatApp = () => {
     });
   };
 
-  const resetUnseenCount = (chatId: string) => {
-    setChats((prev) => {
-      if (!prev) return null;
-      return prev.map((chat) => {
-        if (chat.chat._id === chatId) {
-          return {
-            ...chat,
-            chat: {
-              ...chat.chat,
-              unseenCount: 0,
-            },
-          };
-        }
-        return chat;
-      });
-    });
-  };
   async function createChat(u: User) {
     try {
       const token = Cookies.get("token");
@@ -214,6 +216,11 @@ const ChatApp = () => {
       toast.error(error.response.data.message);
     }
   };
+  useEffect(() => {
+    if (selectedUser && pendingWarnings[selectedUser]) {
+      toast.error(pendingWarnings[selectedUser]);
+    }
+  }, [selectedUser]);
   const handleTyping = (value: string) => {
     setMessage(value);
     if (!selectedUser || !socket) return;
@@ -242,13 +249,17 @@ const ChatApp = () => {
     socket?.on("newMessage", (message) => {
       console.log("Received new message:", message);
 
-      if (selectedUser === message.chatId) {
+      const isActiveChat =
+        selectedUser &&
+        message.chatId &&
+        selectedUser === (message.chatId._id || message.chatId);
+
+      if (isActiveChat) {
         setMessages((prev) => {
           const currentMessages = prev || [];
-          const messageExists = currentMessages.some(
-            (msg) => msg._id === message._id,
-          );
-          if (!messageExists) {
+          const exists = currentMessages.some((m) => m._id === message._id);
+
+          if (!exists) {
             return [...currentMessages, message];
           }
           return currentMessages;
@@ -259,25 +270,49 @@ const ChatApp = () => {
         moveChatToTop(message.chatId, message, true);
       }
     });
+    // ✅ ADD THIS BLOCK 👇👇👇
+    socket?.on("warningPopup", (data) => {
+      if (data.chatId === selectedUser) {
+        toast.error(data.text);
+      } else {
+        setPendingWarnings((prev) => ({
+          ...prev,
+          [data.chatId]: data.text,
+        }));
+      }
+    });
+    socket?.on("updateUnread", ({ chatId, unreadCount }) => {
+      console.log("📩 Unread update:", chatId, unreadCount);
 
+      setChats((prev) => {
+        if (!prev) return null;
+
+        return prev.map((chat) => {
+          if (chat.chat._id === chatId) {
+            return {
+              ...chat,
+              chat: {
+                ...chat.chat,
+                unseenCount: unreadCount, // ✅ real count from backend
+              },
+            };
+          }
+          return chat;
+        });
+      });
+    });
     socket?.on("messageSeen", (data) => {
       console.log("Message seen by :", data);
 
+      // ✅ UPDATE MESSAGE UI
       if (selectedUser === data.chatId) {
         setMessages((prev) => {
           if (!prev) return null;
           return prev.map((msg) => {
             if (
               msg.sender === loggedInUser?._id &&
-              data.messageIds &&
-              data.messageIds.includes(msg._id)
+              data.messageIds?.includes(msg._id)
             ) {
-              return {
-                ...msg,
-                seen: true,
-                seenAt: new Date().toString(),
-              };
-            } else if (msg.sender === loggedInUser?._id && !data.messageIds) {
               return {
                 ...msg,
                 seen: true,
@@ -288,6 +323,16 @@ const ChatApp = () => {
           });
         });
       }
+
+      // ✅ 🔥 ADD THIS (VERY IMPORTANT)
+      setChats((prev) => {
+        if (!prev) return null;
+        return prev.map((chat) =>
+          chat.chat._id === data.chatId
+            ? { ...chat, chat: { ...chat.chat, unseenCount: 0 } }
+            : chat,
+        );
+      });
     });
 
     socket?.on("userTyping", (data) => {
@@ -306,6 +351,8 @@ const ChatApp = () => {
 
     return () => {
       socket?.off("newMessage");
+      socket?.off("warningPopup");
+      socket?.off("updateUnread");
       socket?.off("messageSeen");
       socket?.off("userTyping");
       socket?.off("userStoppedTyping");
@@ -316,8 +363,12 @@ const ChatApp = () => {
       fetchChat();
 
       setIsTyping(false);
-      resetUnseenCount(selectedUser);
+      // resetUnseenCount(selectedUser);
       socket?.emit("joinChat", selectedUser);
+      socket?.emit("markAsSeen", {
+        chatId: selectedUser,
+        userId: loggedInUser?._id,
+      });
 
       return () => {
         socket?.emit("leaveChat", selectedUser);

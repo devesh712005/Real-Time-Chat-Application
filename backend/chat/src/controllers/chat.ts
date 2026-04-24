@@ -60,7 +60,7 @@ export const getAllChats = TryCatch(async (req: AuthenticatedRequest, res) => {
 
       try {
         const { data } = await axios.get(
-          `${process.env.USER_SERVICE}/api/v1/user/${otherUserId}`,
+          `${process.env.USER_SERVICE}/api/user/user/${otherUserId}`,
         );
         return {
           user: data,
@@ -238,7 +238,7 @@ export const getMessagesByChat = TryCatch(
     const otherUserId = chat.users.find((id) => id !== userId);
     try {
       const { data } = await axios.get(
-        `${process.env.USER_SERVICE}/api/v1/user/${otherUserId}`,
+        `${process.env.USER_SERVICE}/api/user/user/${otherUserId}`,
       );
       if (!otherUserId) {
         res.status(400).json({

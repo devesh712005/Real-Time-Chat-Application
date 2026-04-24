@@ -10,9 +10,9 @@ import {
 import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import axios from "axios";
-
-export const user_service = "http://localhost:5000";
-export const chat_service = "http://localhost:5002";
+const BASE_URL = "https://safe-x.xyz";
+export const user_service = BASE_URL;
+export const chat_service = BASE_URL;
 
 export interface User {
   _id: string;

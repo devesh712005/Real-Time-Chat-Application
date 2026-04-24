@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./env/frontend.env # ✅ store GEMINI key here
+    restart: always
+    depends_on:
+      - user
+      - chat
+
+  chat:
+    build: ./backend/chat
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./env/auth.env
+    restart: always
+    depends_on:
+      - rabbitmq
+
+  mail:
+    build: ./backend/mail
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./env/utils.env
+    restart: always
+    depends_on:
+      - rabbitmq
+
+  moderation:
+    build: ./backend/moderation
+    ports:
+      - "5002:5002"
+    env_file:
+      - ./env/user.env
+    restart: always
+    depends_on:
+      - rabbitmq
+
+  user:
+    build: ./backend/user
+    ports:
+      - "5003:5003"
+    env_file:
+      - ./env/job.env
+    restart: always
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # messaging
+      - "15672:15672" # dashboard
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    restart: always
