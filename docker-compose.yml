@@ -7,7 +7,7 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ./env/frontend.env # ✅ store GEMINI key here
+      - /home/ubuntu/env/frontend.env
     restart: always
     depends_on:
       - user
@@ -18,7 +18,7 @@ services:
     ports:
       - "5000:5000"
     env_file:
-      - ./env/chat.env
+      - /home/ubuntu/env/chat.env
     restart: always
     depends_on:
       - rabbitmq
@@ -28,7 +28,7 @@ services:
     ports:
       - "5001:5001"
     env_file:
-      - ./env/mail.env
+      - /home/ubuntu/env/mail.env
     restart: always
     depends_on:
       - rabbitmq
@@ -38,7 +38,7 @@ services:
     ports:
       - "5002:5002"
     env_file:
-      - ./env/moderation.env
+      - /home/ubuntu/env/moderation.env
     restart: always
     depends_on:
       - rabbitmq
@@ -48,7 +48,7 @@ services:
     ports:
       - "5003:5003"
     env_file:
-      - ./env/user.env
+      - /home/ubuntu/env/user.env
     restart: always
     depends_on:
       - rabbitmq
@@ -57,8 +57,8 @@ services:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672" # messaging
-      - "15672:15672" # dashboard
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
