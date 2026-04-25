@@ -38,7 +38,7 @@ This project demonstrates a **production-ready system design** using modern back
 
 ## 🏗️ Project Architecture
 
-🔗 Architecture Diagram: https://app.eraser.io/workspace/GTtRHZbcKISWpFT8B3zG
+🔗 Architecture Diagram: https://app.eraser.io/workspace/GTtRHZbcKlSWpFT8B3zG?origin=share&diagram=pNLlVmVJyxmRqVLsose_
 
 The system follows a **microservices + event-driven architecture**:
 
