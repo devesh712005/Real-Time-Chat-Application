@@ -1,12 +1,13 @@
 // services/moderationClient.ts
 import axios from "axios";
-
+import dotenv from "dotenv";
+dotenv.config();
 export const analyzeMessage = async (text: string) => {
   try {
-    console.log("📤 Sending to moderation:", text); // 🔥 NEW
+    console.log("📤 Sending to moderation:", text);
 
     const res = await axios.post(
-      "http://localhost:5003/api/v1/moderation/analyze",
+      "${MODERATION_SERVICE}/api/v1/moderation/analyze",
       { text },
     );
 
