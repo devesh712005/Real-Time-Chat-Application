@@ -7,7 +7,7 @@ export const analyzeMessage = async (text: string) => {
     console.log("📤 Sending to moderation:", text);
 
     const res = await axios.post(
-      "${MODERATION_SERVICE}/api/v1/moderation/analyze",
+      `${process.env.MODERATION_SERVICE}/api/v1/moderation/analyze`,
       { text },
     );
 
